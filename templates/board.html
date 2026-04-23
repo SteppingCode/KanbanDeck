@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kanban</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #333;
+            height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            padding: 20px;
+        }
+
+        .board {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .column {
+            background: rgba(255,255,255,0.9);
+            border-radius: 16px;
+            padding: 15px;
+            width: 280px;
+        }
+
+        .column h3 {
+            margin-top: 0;
+        }
+
+        .task {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            cursor: grab;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .task:hover {
+            transform: scale(1.03);
+        }
+
+        input {
+            width: 70%;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 6px 10px;
+            border: none;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #5a67d8;
+        }
+
+        .footer {
+            background-color: lightgray;
+            display: block;
+            position: absolute;
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+<h1>{{ board.name }}</h1>
+
+<div class="board">
+    {% for column in board.columns.all %}
+        <div class="column {% if column.name == "Archive" %} footer {% endif %}">
+            <h3>{{ column.name }}</h3>
+
+            {% if column.name == "Archive" %}
+            <p>Paste here tasks those are already done!</p>
+            {% endif %}
+
+            <div class="task-list" data-column-id="{{ column.id }}">
+                {% for task in column.tasks.all %}
+                    <div class="task" data-id="{{ task.id }}">
+                        {{ task.title }}
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if column.name != "Archive" %}
+                <form method="post" action="/column/{{ column.id }}/add_task/">
+                    {% csrf_token %}
+                    <input type="text" name="title" placeholder="New task">
+                    <button>Add</button>
+                </form>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+    document.querySelectorAll('.task-list').forEach(el => {
+        new Sortable(el, {
+            group: 'tasks',
+            animation: 150,
+            onEnd: function (evt) {
+                const taskId = evt.item.dataset.id;
+                const columnId = evt.to.dataset.columnId;
+
+                fetch('/move_task/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        column_id: columnId
+                    })
+                });
+            }
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+</body>
+</html>
